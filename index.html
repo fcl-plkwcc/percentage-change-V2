@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Percentage Change: Two-Way Challenge</title>
+<style>
+    body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        user-select: none;
+        min-height: 100vh;
+    }
+    h1 { 
+        color: #2c3e50; 
+        margin-bottom: 10px;
+        font-weight: 800;
+        text-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
+        letter-spacing: -0.5px;
+    }
+    .controls { margin-bottom: 25px; }
+    button {
+        padding: 12px 28px; 
+        font-size: 16px; 
+        margin: 0 10px;
+        cursor: pointer; 
+        border-radius: 30px; 
+        border: none;
+        background: linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%);
+        color: white; 
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(255, 117, 140, 0.4);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover { 
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 117, 140, 0.6);
+    }
+    button:active {
+        transform: translateY(1px);
+    }
+
+    .game-wrapper {
+        width: 100%;
+        max-width: 1200px;
+        overflow-x: auto; 
+        padding: 30px;
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .board {
+        display: grid;
+        grid-template-columns: 140px 600px 140px;
+        grid-template-rows: 140px 500px 140px;
+        gap: 15px;
+        width: max-content;
+        margin: auto;
+    }
+
+    .node {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 36px;
+        font-weight: 800;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 24px;
+        border: 4px solid white;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15), inset 0 -4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .path { display: flex; justify-content: center; align-items: center; }
+    .h-path { flex-direction: column; gap: 20px; }
+    .v-path { flex-direction: row; gap: 20px; }
+    
+    .track { 
+        display: flex; 
+        background-color: rgba(220, 221, 225, 0.5);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .h-path .track { flex-direction: row; width: 260px; height: 60px; }
+    .v-path .track { flex-direction: column; width: 70px; height: 240px; }
+
+    .pool {
+        background: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.5), 0 8px 32px rgba(31, 38, 135, 0.05);
+    }
+
+    .slot {
+        flex: 1;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: 0.3s;
+        box-sizing: border-box;
+    }
+    
+    .h-path .slot { border-right: 2px dashed rgba(127, 143, 166, 0.4); }
+    .h-path .slot:last-child { border-right: none; }
+    .v-path .slot { border-bottom: 2px dashed rgba(127, 143, 166, 0.4); }
+    .v-path .slot:last-child { border-bottom: none; }
+
+    .slot[data-type="num"] { background-color: rgba(116, 185, 255, 0.15); }
+    .slot[data-type="pct"] { background-color: rgba(253, 203, 110, 0.2); }
+
+    .slot:empty::before {
+        content: attr(data-label);
+        color: rgba(44, 62, 80, 0.4);
+        font-weight: 700;
+        font-size: 13px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    .track.right-dir { clip-path: polygon(0 0, 88% 0, 100% 50%, 88% 100%, 0 100%); }
+    .track.left-dir  { clip-path: polygon(12% 0, 100% 0, 100% 100%, 12% 100%, 0 50%); }
+    .track.down-dir  { clip-path: polygon(0 0, 100% 0, 100% 88%, 50% 100%, 0 88%); }
+    .track.up-dir    { clip-path: polygon(50% 0, 100% 12%, 100% 100%, 0 100%, 0 12%); }
+
+    .card {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        cursor: grab;
+        font-weight: 700;
+        box-sizing: border-box;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        font-size: 14px;
+        line-height: 1.2;
+        padding: 5px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid rgba(255,255,255,0.4);
+    }
+    .card:active { cursor: grabbing; }
+
+    .pool .card {
+        width: 100px;
+        height: 50px;
+        border-radius: 10px;
+    }
+    
+    .pool .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        z-index: 10;
+    }
+
+    .slot .card {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+        font-size: 13px; 
+    }
+    
+    .slot .card:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .card.num-card { 
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+        color: #013552; 
+    }
+    .card.pct-card { 
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); 
+        color: #592512; 
+    }
+    .slot .card.num-card { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .slot .card.pct-card { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
+
+    .selected { 
+        box-shadow: 0 0 0 3px #fff, 0 0 15px 5px #e84393 !important; 
+        z-index: 100;
+        transform: scale(1.05);
+    }
+</style>
+</head>
+<body>
+
+    <h1>Percentage Change: Two-Way Challenge</h1>
+    <div class="controls">
+        <button onclick="resetGame()" style="background-color: #95a5a6;">Restart Game</button>
+    </div>
+
+    <div class="game-wrapper">
+        <div class="board">
+            <div class="node">200</div>
+            
+            <div class="path h-path">
+                <div class="track right-dir">
+                    <div class="slot" data-type="num" data-label="Number" data-ans="+50"></div>
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="increase by 25%"></div>
+                </div>
+                <div class="track left-dir">
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="decrease by 20%"></div>
+                    <div class="slot" data-type="num" data-label="Number" data-ans="-50"></div>
+                </div>
+            </div>
+
+            <div class="node">250</div>
+
+            <div class="path v-path">
+                <div class="track down-dir">
+                    <div class="slot" data-type="num" data-label="Number" data-ans="-100"></div>
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="decrease by 50%"></div>
+                </div>
+                <div class="track up-dir">
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="increase by 100%"></div>
+                    <div class="slot" data-type="num" data-label="Number" data-ans="+100"></div>
+                </div>
+            </div>
+
+            <div class="pool" id="pool"></div>
+
+            <div class="path v-path">
+                <div class="track down-dir">
+                    <div class="slot" data-type="num" data-label="Number" data-ans="-125"></div>
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="decrease by 50%"></div>
+                </div>
+                <div class="track up-dir">
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="increase by 100%"></div>
+                    <div class="slot" data-type="num" data-label="Number" data-ans="+125"></div>
+                </div>
+            </div>
+
+            <div class="node">100</div>
+
+            <div class="path h-path">
+                <div class="track right-dir">
+                    <div class="slot" data-type="num" data-label="Number" data-ans="+25"></div>
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="increase by 25%"></div>
+                </div>
+                <div class="track left-dir">
+                    <div class="slot" data-type="pct" data-label="% Change" data-ans="decrease by 20%"></div>
+                    <div class="slot" data-type="num" data-label="Number" data-ans="-25"></div>
+                </div>
+            </div>
+
+            <div class="node">125</div>
+        </div>
+    </div>
+
+<script>
+    const pctCards = [
+        "increase by 25%", "decrease by 25%", "increase by 20%", "decrease by 20%",
+        "increase by 50%", "decrease by 50%", "increase by 100%", "decrease by 100%",
+        "increase by 25%", "decrease by 25%", "increase by 20%", "decrease by 20%",
+        "increase by 50%", "decrease by 50%", "increase by 100%", "decrease by 100%"
+    ];
+    const numCards = [
+        "+50", "-50", "-100", "+100", "-125", "+125", "+25", "-25",
+        "+20", "-20", "+75", "-75"
+    ];
+
+    let selectedCard = null;
+    
+    // Touch support variables
+    let draggingCard = null;
+    let touchOffsetX = 0;
+    let touchOffsetY = 0;
+    let hasMoved = false;
+
+    function initGame() {
+        const pool = document.getElementById('pool');
+        pool.innerHTML = '';
+        
+        let allCards = [];
+        pctCards.forEach(val => allCards.push({val: val, type: 'pct'}));
+        numCards.forEach(val => allCards.push({val: val, type: 'num'}));
+        
+        allCards.sort(() => Math.random() - 0.5);
+
+        const poolWidth = 580;
+        const poolHeight = 480;
+        
+        // 6x5 grid (30 cells) to prevent 28 cards from overlapping
+        const cols = 5;
+        const rows = 6;
+        const cellW = poolWidth / cols;
+        const cellH = poolHeight / rows;
+        
+        let gridPositions = [];
+        for(let r = 0; r < rows; r++) {
+            for(let c = 0; c < cols; c++) {
+                gridPositions.push({c, r});
+            }
+        }
+        // Shuffle grid positions
+        gridPositions.sort(() => Math.random() - 0.5);
+
+        allCards.forEach((data, index) => {
+            let card = document.createElement('div');
+            card.className = `card ${data.type}-card`;
+            card.id = 'card-' + index;
+            card.draggable = true;
+            card.dataset.val = data.val;
+            card.dataset.type = data.type;
+            
+            card.innerHTML = data.val.replace("increase by", "increase<br>by").replace("decrease by", "decrease<br>by");
+
+            // Grid assignment with random jitter for a scattered look
+            let pos = gridPositions[index];
+            let jitterX = Math.random() * 10;
+            let jitterY = Math.random() * 30;
+            
+            card.style.position = 'absolute';
+            card.style.left = (pos.c * cellW + jitterX) + 'px';
+            card.style.top = (pos.r * cellH + jitterY) + 'px';
+
+            card.addEventListener('dragstart', dragStart);
+            card.addEventListener('click', cardClick);
+            
+            // iPad Touch Listeners
+            card.addEventListener('touchstart', handleTouchStart, {passive: false});
+            card.addEventListener('touchmove', handleTouchMove, {passive: false});
+            card.addEventListener('touchend', handleTouchEnd);
+            
+            pool.appendChild(card);
+        });
+
+        setupSlots();
+        setupPoolDrop();
+    }
+
+    // --- Touch Support Functions ---
+    function handleTouchStart(e) {
+        hasMoved = false;
+        draggingCard = e.currentTarget;
+        const touch = e.touches[0];
+        const rect = draggingCard.getBoundingClientRect();
+        touchOffsetX = touch.clientX - rect.left;
+        touchOffsetY = touch.clientY - rect.top;
+        draggingCard.style.zIndex = '1000';
+    }
+
+    function handleTouchMove(e) {
+        if (!draggingCard) return;
+        hasMoved = true;
+        e.preventDefault(); // Stop screen scrolling while dragging
+        
+        if (selectedCard) {
+             selectedCard.classList.remove('selected');
+             selectedCard = null;
+        }
+
+        const pool = document.getElementById('pool');
+        // If extracted from a slot, move to pool context
+        if (draggingCard.parentNode !== pool) {
+            pool.appendChild(draggingCard);
+            draggingCard.style.width = '100px';
+            draggingCard.style.height = '50px';
+        }
+        
+        const poolRect = pool.getBoundingClientRect();
+        let newX = e.touches[0].clientX - poolRect.left - touchOffsetX;
+        let newY = e.touches[0].clientY - poolRect.top - touchOffsetY;
+        
+        draggingCard.style.position = 'absolute';
+        draggingCard.style.left = newX + 'px';
+        draggingCard.style.top = newY + 'px';
+    }
+
+    function handleTouchEnd(e) {
+        if (!draggingCard) return;
+        
+        if (hasMoved) {
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            
+            // Hide temporarily to find element underneath the finger
+            draggingCard.style.display = 'none';
+            const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            draggingCard.style.display = 'flex'; 
+            
+            const slot = dropTarget ? dropTarget.closest('.slot') : null;
+            
+            if (slot) {
+                if (draggingCard.dataset.type === slot.dataset.type) {
+                    placeCardInSlot(draggingCard, slot);
+                } else {
+                    const origBg = slot.style.backgroundColor;
+                    slot.style.backgroundColor = '#fab1a0';
+                    setTimeout(() => slot.style.backgroundColor = origBg, 300);
+                    boundCardInPool(draggingCard);
+                }
+            } else {
+                boundCardInPool(draggingCard);
+            }
+        }
+        
+        draggingCard.style.zIndex = '';
+        draggingCard = null;
+    }
+
+    function boundCardInPool(card) {
+        const pool = document.getElementById('pool');
+        const poolRect = pool.getBoundingClientRect();
+        let left = parseInt(card.style.left || 0);
+        let top = parseInt(card.style.top || 0);
+        
+        // Prevent leaving the glass pool area
+        left = Math.max(0, Math.min(left, poolRect.width - 100));
+        top = Math.max(0, Math.min(top, poolRect.height - 50));
+        
+        card.style.left = left + 'px';
+        card.style.top = top + 'px';
+        card.style.width = '';
+        card.style.height = '';
+    }
+
+    function dragStart(e) {
+        e.dataTransfer.setData('text/plain', e.target.id);
+        if(selectedCard) {
+            selectedCard.classList.remove('selected');
+            selectedCard = null;
+        }
+    }
+
+    function setupSlots() {
+        const slots = document.querySelectorAll('.slot');
+        slots.forEach(slot => {
+            slot.innerHTML = ''; 
+            
+            slot.addEventListener('dragover', e => e.preventDefault());
+            slot.addEventListener('drop', slotDrop);
+            slot.addEventListener('click', slotClick);
+        });
+    }
+
+    function slotDrop(e) {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        const card = document.getElementById(id);
+        
+        // Enforce type matching
+        if (card && card.dataset.type === e.currentTarget.dataset.type) {
+            placeCardInSlot(card, e.currentTarget);
+        }
+    }
+
+    function setupPoolDrop() {
+        const pool = document.getElementById('pool');
+        pool.addEventListener('dragover', e => e.preventDefault());
+        pool.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if(e.target.classList.contains('card')) return; 
+
+            const id = e.dataTransfer.getData('text/plain');
+            const card = document.getElementById(id);
+            if (card) {
+                const rect = pool.getBoundingClientRect();
+                let x = e.clientX - rect.left - 50; 
+                let y = e.clientY - rect.top - 25;  
+                
+                x = Math.max(0, Math.min(x, rect.width - 100));
+                y = Math.max(0, Math.min(y, rect.height - 50));
+
+                card.style.position = 'absolute';
+                card.style.left = x + 'px';
+                card.style.top = y + 'px';
+                pool.appendChild(card);
+            }
+        });
+        
+        pool.addEventListener('click', (e) => {
+            if(e.target.id === 'pool' && selectedCard) {
+                const rect = pool.getBoundingClientRect();
+                let x = e.clientX - rect.left - 50;
+                let y = e.clientY - rect.top - 25;
+                selectedCard.style.position = 'absolute';
+                selectedCard.style.left = x + 'px';
+                selectedCard.style.top = y + 'px';
+                pool.appendChild(selectedCard);
+                selectedCard.classList.remove('selected');
+                selectedCard = null;
+            }
+        });
+    }
+
+    function cardClick(e) {
+        e.stopPropagation();
+        if (selectedCard) selectedCard.classList.remove('selected');
+        selectedCard = e.currentTarget;
+        selectedCard.classList.add('selected');
+    }
+
+    function slotClick(e) {
+        if (selectedCard) {
+            // Enforce type matching
+            if (selectedCard.dataset.type === e.currentTarget.dataset.type) {
+                placeCardInSlot(selectedCard, e.currentTarget);
+                selectedCard.classList.remove('selected');
+                selectedCard = null;
+            } else {
+                // Flash the slot red momentarily to indicate error
+                const slot = e.currentTarget;
+                const origBg = slot.style.backgroundColor;
+                slot.style.backgroundColor = '#fab1a0';
+                setTimeout(() => slot.style.backgroundColor = origBg, 300);
+            }
+        }
+    }
+
+    function placeCardInSlot(card, slot) {
+        if (!card) return;
+        if (slot.children.length > 0) {
+            const oldCard = slot.children[0];
+            document.getElementById('pool').appendChild(oldCard);
+            oldCard.style.position = 'absolute';
+            oldCard.style.width = ''; 
+            oldCard.style.height = '';
+            oldCard.style.left = '240px'; 
+            oldCard.style.top = '200px';
+        }
+        card.style.position = 'absolute';
+        card.style.left = '0';
+        card.style.top = '0';
+        card.style.width = '';
+        card.style.height = '';
+        slot.appendChild(card);
+    }
+
+    function resetGame() {
+        initGame();
+    }
+
+    window.onload = initGame;
+</script>
+</body>
+</html>
